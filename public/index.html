@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI Tutor for Rural Students</title>
+<style>
+:root{--bg:#fff;--card:#E8F3EC;--ink:#1B1B1B;--pri:#1F4D3A;--on:#fff;--amb:#F2A541;--mut:#5a6b62;--line:#cfe0d5;--bad:#C0583A;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121A16;--card:#1D2B24;--ink:#EEF4F0;--pri:#7FCBA2;--on:#10231A;--mut:#9DB3A6;--line:#2C4036}}
+:root[data-theme="dark"]{--bg:#121A16;--card:#1D2B24;--ink:#EEF4F0;--pri:#7FCBA2;--on:#10231A;--mut:#9DB3A6;--line:#2C4036}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Calibri,system-ui,sans-serif}
+.wrap{max-width:640px;margin:0 auto;padding:16px}
+h1{font:700 24px Cambria,Georgia,serif;color:var(--pri);margin:0 0 2px}
+.sub{color:var(--mut);margin:0 0 12px;font-size:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+select,input{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;min-width:0}
+select{flex:1}
+input{flex:1}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px}
+.chip,button{font:inherit;border:0;border-radius:999px;padding:8px 14px;background:var(--card);color:var(--ink);white-space:nowrap;cursor:pointer}
+.chip.on{background:var(--pri);color:var(--on)}
+button.go{background:var(--pri);color:var(--on);border-radius:10px;font-weight:700}
+button:disabled{opacity:.5}
+.steps{display:flex;gap:6px;margin:8px 0}
+.st{flex:1;text-align:center;font-size:12px;padding:6px 2px;border-radius:8px;background:var(--card);color:var(--mut)}
+.st.on{background:var(--amb);color:#1B1B1B;font-weight:700}
+.stats{display:flex;justify-content:space-between;font-size:13px;color:var(--mut);margin-bottom:8px}
+#chat{display:flex;flex-direction:column;gap:8px;min-height:140px}
+.m{padding:10px 12px;border-radius:14px;max-width:92%;white-space:pre-wrap;word-wrap:break-word}
+.me{align-self:flex-end;background:var(--pri);color:var(--on)}
+.ai{align-self:flex-start;background:var(--card)}
+.sys{align-self:center;color:var(--mut);font-size:13px;text-align:center}
+.q{background:var(--card);border-radius:14px;padding:12px;margin-top:8px}
+.q button{display:block;width:100%;text-align:left;border-radius:10px;margin-top:6px;background:var(--bg);border:1px solid var(--line)}
+.q .ok{background:var(--pri);color:var(--on)}
+.q .no{background:var(--bad);color:#fff}
+.bar{display:flex;gap:8px;margin-top:12px}
+.bar2{display:flex;gap:8px;margin-top:8px}
+.err{color:var(--bad);font-size:14px;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>AI Tutor</h1>
+<p class="sub">Learn any subject, in your own language.</p>
+<div class="row">
+<select id="lang" aria-label="Language"><option>English</option><option>Hindi</option><option>Marathi</option><option>Tamil</option><option>Telugu</option><option>Kannada</option><option>Bengali</option><option>Gujarati</option><option>Punjabi</option></select>
+<select id="grade" aria-label="Grade"><option>Class 6</option><option>Class 7</option><option selected>Class 8</option><option>Class 9</option><option>Class 10</option></select>
+</div>
+<div class="chips" id="chips"></div>
+<div class="steps"><div class="st" id="s1">Perceive</div><div class="st" id="s2">Plan</div><div class="st" id="s3">Act</div><div class="st" id="s4">Learn</div></div>
+<div class="stats"><span id="score">Quiz score: 0/0</span><span id="weak">Weak topics: none yet</span></div>
+<div id="chat"><div class="m sys">Pick a subject, then ask anything or tap "Teach me".</div></div>
+<div id="quiz"></div>
+<div id="err" class="err"></div>
+<div class="bar"><input id="inp" placeholder="Ask a question or type a topic" aria-label="Message"><button class="go" id="send">Send</button></div>
+<div class="bar2"><button id="teach">Teach me</button><button id="qz">Quiz me</button></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const subjects=["Any subject","Maths","Science","Social studies","English","Computers"];
+let subject=subjects[0],history=[],score={c:0,t:0},weak={},busy=false,sample=null;
+subjects.forEach(s=>{const b=document.createElement("button");b.className="chip"+(s===subject?" on":"");b.textContent=s;b.onclick=()=>{subject=s;[...$("chips").children].forEach(x=>x.classList.toggle("on",x===b))};$("chips").appendChild(b)});
+function setStep(n){["s1","s2","s3","s4"].forEach((id,i)=>$(id).classList.toggle("on",i===n-1))}
+function add(cls,txt){const d=document.createElement("div");d.className="m "+cls;d.textContent=txt;$("chat").appendChild(d);d.scrollIntoView({block:"end"});return d}
+function stats(){$("score").textContent="Quiz score: "+score.c+"/"+score.t;const w=Object.keys(weak);$("weak").textContent="Weak topics: "+(w.length?w.slice(0,3).join(", "):"none yet")}
+async function callAI(prompt,json){const r=await fetch("/api/ask",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt,json})});if(!r.ok){const e=new Error("fail");e.code=r.status===429?"rate_limited":"error";throw e}return r.json()}
+async function getSample(){if(!sample){sample=async p=>({text:(await callAI(p,false)).text});sample.json=async p=>(await callAI(p,true)).data}return sample}
+function profile(){return "Student: "+$("grade").value+", subject: "+subject+", language: "+$("lang").value+". Weak topics: "+(Object.keys(weak).join(", ")||"none")+". Quiz score: "+score.c+"/"+score.t+"."}
+async function ask(text){
+ if(busy)return;const s=await getSample();if(!s)return;
+ busy=true;$("err").textContent="";setStep(1);add("me",text);history.push("Student: "+text);
+ const prompt="You are a friendly AI tutor for rural students in India who can teach any school subject. Reply ONLY in "+$("lang").value+" (use its native script), in very simple words. Explain one idea at a time with a short everyday example, keep it under 120 words, use plain text with no markdown, and end with one short question to check understanding. Adapt to the student's level and revisit weak topics.\n"+profile()+"\nConversation so far:\n"+history.slice(-10).join("\n")+"\nTutor:";
+ const out=add("ai","...");
+ try{setStep(2);const r=await s(prompt,{cache:false,onText:({text})=>{setStep(3);out.textContent=text;out.scrollIntoView({block:"end"})}});out.textContent=r.text;history.push("Tutor: "+r.text);setStep(4)}
+ catch(e){out.remove();$("err").textContent=e&&e.code==="rate_limited"?"Too many requests. Wait a moment and try again.":"Could not reach the AI tutor. Please try again."}
+ busy=false;
+}
+$("send").onclick=()=>{const v=$("inp").value.trim();if(!v){$("err").textContent="Type a question first.";return}$("inp").value="";ask(v)};
+$("inp").addEventListener("keydown",e=>{if(e.key==="Enter")$("send").click()});
+$("teach").onclick=()=>ask(subject==="Any subject"?"Pick a useful topic for my class and teach me the basics.":"Teach me the basics of "+subject+" for my class.");
+$("qz").onclick=async()=>{
+ if(busy)return;const s=await getSample();if(!s)return;
+ busy=true;$("err").textContent="";setStep(2);$("quiz").innerHTML="";
+ const topic=history.length?history.slice(-6).join("\n"):"general "+subject+" for "+$("grade").value;
+ try{
+  const qs=await s.json("Create 3 multiple-choice questions in "+$("lang").value+" for a "+$("grade").value+" student, based on this lesson or topic (focus on weak topics: "+(Object.keys(weak).join(", ")||"none")+"):\n"+topic+"\nReturn ONLY JSON: {\"questions\":[{\"q\":\"\",\"options\":[\"\",\"\",\"\",\"\"],\"answer\":0,\"topic\":\"short topic name\"}]} where answer is the index of the correct option.",{cache:false});
+  setStep(3);let i=0,right=0;const list=qs.questions||[];
+  const show=()=>{
+   if(i>=list.length){$("quiz").innerHTML="";const m="Quiz done: "+right+"/"+list.length+".";add("sys",m);history.push("Quiz result: "+right+" of "+list.length+" correct. Weak topics: "+(Object.keys(weak).join(", ")||"none"));setStep(4);busy=false;return}
+   const q=list[i],box=document.createElement("div");box.className="q";box.textContent=(i+1)+". "+q.q;
+   q.options.forEach((o,k)=>{const b=document.createElement("button");b.textContent=o;b.onclick=()=>{[...box.querySelectorAll("button")].forEach((x,j)=>{x.disabled=true;if(j===q.answer)x.classList.add("ok")});score.t++;if(k===q.answer){score.c++;right++}else{b.classList.add("no");weak[q.topic||subject]=1}stats();setTimeout(()=>{i++;show()},1100)};box.appendChild(b)});
+   $("quiz").innerHTML="";$("quiz").appendChild(box);box.scrollIntoView({block:"end"});
+  };
+  if(!list.length)throw new Error("empty");show();
+ }catch(e){$("err").textContent="Could not make a quiz. Try again.";busy=false}
+};
+stats();
+</script>
+</body>
+</html>

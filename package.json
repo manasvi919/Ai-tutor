@@ -1,0 +1,9 @@
+{
+  "name": "ai-tutor-rural-students",
+  "version": "1.0.0",
+  "description": "AI tutor for rural students (SDG 4) - frontend + backend",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "express": "^4.19.2" }
+}
